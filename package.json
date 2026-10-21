@@ -23,6 +23,7 @@
   "license": "ISC",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@vreden/youtube_scraper": "^1.2.9",
     "@whiskeysockets/baileys": "^6.7.24",
     "axios": "^1.20.0",
     "fluent-ffmpeg": "^2.1.3",

@@ -77,6 +77,7 @@ npm run dev
 | `!s` | `!sticker` | Convierte una imagen, GIF o video corto en un sticker de WhatsApp. |
 | `!toimg` | `!toimage` | Convierte un sticker estático de vuelta a formato de imagen PNG. |
 | `!tovideo` | `!tomp4` | Convierte un sticker animado en un video MP4 reproducible. |
+| `!playaudio <canción>` | `!playmp3`, `!ytaudio` | Busca una canción y envía su descripción corta seguida directamente del audio MP3. |
 | `!play <nombre/link>` | `!musica` | Busca una canción en YouTube y muestra su información y opciones de audio. |
 | `!video <nombre/link>` | `!ytvideo` | Busca un video en YouTube y genera ficha y descarga en alta resolución. |
 | `!ytmp3 <link>` | `!ytmp4` | Genera enlaces de descarga directa para audio o video de YouTube. |
