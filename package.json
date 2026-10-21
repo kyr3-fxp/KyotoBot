@@ -27,9 +27,13 @@
     "@whiskeysockets/baileys": "^6.7.24",
     "axios": "^1.20.0",
     "fluent-ffmpeg": "^2.1.3",
+    "libsignal": "^6.0.0",
     "node-cache": "^5.1.2",
     "pino": "^9.6.0",
     "qrcode-terminal": "^0.12.0",
     "yt-search": "^2.13.1"
+  },
+  "overrides": {
+    "libsignal": "$libsignal"
   }
 }

@@ -53,7 +53,11 @@ export default {
       // 2. Extraer el enlace de descarga MP3
       let downloadUrl = null;
       try {
-        const ytRes = await ytScraper.ytmp3(video.url, 128);
+        let ytRes = await ytScraper.ytmp3(video.url, 128);
+        if (!ytRes?.download?.url) {
+          // Reintento con calidad 92 o 64 si el CDN está ocupado
+          ytRes = await ytScraper.ytmp3(video.url, 92);
+        }
         if (ytRes && ytRes.status && ytRes.download?.url) {
           downloadUrl = ytRes.download.url;
         }
