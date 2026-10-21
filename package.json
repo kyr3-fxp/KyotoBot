@@ -34,6 +34,9 @@
     "yt-search": "^2.13.1"
   },
   "overrides": {
-    "libsignal": "$libsignal"
+    "@whiskeysockets/baileys": {
+      "libsignal": "^6.0.0"
+    },
+    "libsignal": "^6.0.0"
   }
 }
