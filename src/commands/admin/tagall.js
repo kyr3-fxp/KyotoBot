@@ -7,7 +7,7 @@ export default {
   usage: '!tagall [mensaje opcional]',
   category: 'admin',
   async execute({ sock, remoteJid, sender, args, msg, m, isFromMe }) {
-    const perm = await checkGroupAdmin({ sock, remoteJid, sender, msg, m, isFromMe });
+    const perm = await checkGroupAdmin({ sock, remoteJid, sender, msg, m, isFromMe, requireBotAdmin: false });
     if (perm.error) {
       await sock.sendMessage(remoteJid, { text: perm.error });
       return;
