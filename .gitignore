@@ -1,0 +1,21 @@
+# Dependencias
+node_modules/
+
+# Sesión y credenciales de WhatsApp (NUNCA compartir ni subir al repositorio)
+auth_info/
+*.session
+*.tmp
+
+# Datos locales y almacenamiento
+data/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Entornos y temporales del sistema
+.env
+.DS_Store
+Thumbs.db
