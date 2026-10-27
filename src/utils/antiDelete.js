@@ -49,19 +49,19 @@ export function extractText(message) {
 
 class AntiDeleteTracker {
   constructor() {
-    this.cache = new Map();
-    this.maxSize = 1500;
-    this.processedEvents = new Set();
+    this.cache = new Map(); // id -> entry
+    this.deletedStore = new Map(); // id -> entry
+    this.deletedByChat = new Map(); // remoteJid -> [id1, id2, ...]
+    this.maxSize = 2000;
   }
 
   /**
-   * Almacena un mensaje en la memoria para soporte de reintentos (getMessage)
-   * y para detección de eliminación / edición (Anti-Delete / Anti-Edit).
+   * Almacena un mensaje en memoria para reintentos (getMessage)
+   * y guarda buffer multimedia para recuperación bajo demanda con !undel.
    */
   async store(msg) {
     if (!msg || !msg.key || !msg.key.id || !msg.message) return;
 
-    // Ignorar estados de difusión
     if (msg.key.remoteJid === 'status@broadcast') return;
 
     const id = msg.key.id;
@@ -112,14 +112,13 @@ class AntiDeleteTracker {
       timestamp: msg.messageTimestamp || Date.now()
     };
 
-    // Control de límite de memoria
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
     this.cache.set(id, entry);
 
-    // Si es multimedia, pre-descargar el buffer de forma segura para tenerlo si lo borran
+    // Pre-descargar buffer de forma silenciosa para que esté listo ante borrados
     if (mediaNode && mediaType) {
       downloadBaileysMedia(mediaNode, mediaType)
         .then(buffer => {
@@ -127,9 +126,7 @@ class AntiDeleteTracker {
             entry.mediaBuffer = buffer;
           }
         })
-        .catch(() => {
-          // Ignorar fallo de pre-descarga
-        });
+        .catch(() => {});
     }
   }
 
@@ -138,156 +135,76 @@ class AntiDeleteTracker {
    */
   getMessage(key) {
     if (!key || !key.id) return undefined;
-    const item = this.cache.get(key.id);
+    const item = this.cache.get(key.id) || this.deletedStore.get(key.id);
     return item?.message || undefined;
   }
 
   /**
-   * Procesa la eliminación de un mensaje (REVOKE)
+   * Registra silenciosamente un mensaje como eliminado sin enviar alertas automáticas al chat.
+   * Queda disponible para ser consultado con el comando !undel.
    */
   async handleRevoke(sock, targetKey) {
     if (!targetKey || !targetKey.id) return;
     const targetId = targetKey.id;
 
-    const eventKey = `revoke_${targetId}`;
-    if (this.processedEvents.has(eventKey)) return;
-    this.processedEvents.add(eventKey);
-
     const cached = this.cache.get(targetId);
     if (!cached) return;
 
-    // No notificar si el mensaje fue borrado por el propio bot (ej. comandos de moderación silenciosa)
+    // Si el mensaje fue borrado por el bot (ej. !del o antilink), no guardarlo
     if (cached.fromMe || targetKey.fromMe) return;
 
     const remoteJid = cached.remoteJid || targetKey.remoteJid;
     if (!remoteJid || remoteJid === 'status@broadcast') return;
 
-    const pushName = cached.pushName || 'Usuario';
-    const sender = cached.sender;
-    const mentions = sender ? [sender] : [];
-
-    try {
-      // 1. Mensaje con archivo multimedia borrado
-      if (cached.mediaType) {
-        let buffer = cached.mediaBuffer;
-        if (!buffer && cached.mediaNode) {
-          try {
-            buffer = await downloadBaileysMedia(cached.mediaNode, cached.mediaType);
-          } catch {}
-        }
-
-        const formatCaption = cached.caption
-          ? `${pushName}: ${cached.caption}`
-          : `${pushName}`;
-
-        if (buffer && buffer.length > 0) {
-          if (cached.mediaType === 'image') {
-            await sock.sendMessage(remoteJid, {
-              image: buffer,
-              caption: formatCaption,
-              mentions
-            });
-            return;
-          } else if (cached.mediaType === 'video') {
-            await sock.sendMessage(remoteJid, {
-              video: buffer,
-              caption: formatCaption,
-              mentions
-            });
-            return;
-          } else if (cached.mediaType === 'sticker') {
-            await sock.sendMessage(remoteJid, {
-              sticker: buffer
-            });
-            await sock.sendMessage(remoteJid, {
-              text: `${pushName}: [Sticker eliminado]`,
-              mentions
-            });
-            return;
-          } else if (cached.mediaType === 'audio') {
-            await sock.sendMessage(remoteJid, {
-              audio: buffer,
-              mimetype: 'audio/mp4',
-              ptt: Boolean(cached.mediaNode?.ptt)
-            });
-            await sock.sendMessage(remoteJid, {
-              text: `${pushName}: [Audio eliminado]`,
-              mentions
-            });
-            return;
-          } else if (cached.mediaType === 'document') {
-            await sock.sendMessage(remoteJid, {
-              document: buffer,
-              mimetype: cached.mediaNode?.mimetype || 'application/octet-stream',
-              fileName: cached.mediaNode?.fileName || 'documento',
-              caption: formatCaption,
-              mentions
-            });
-            return;
-          }
-        }
-      }
-
-      // 2. Mensaje de texto borrado
-      const originalText = extractText(cached.message);
-      if (originalText) {
-        await sock.sendMessage(remoteJid, {
-          text: `${pushName}: ${originalText}`,
-          mentions
-        });
-      }
-    } catch (err) {
-      console.error('[AntiDelete Revoke Error]', err);
+    // Si aún no tenía buffer y tiene nodo, intentar descargarlo
+    if (cached.mediaType && !cached.mediaBuffer && cached.mediaNode) {
+      try {
+        cached.mediaBuffer = await downloadBaileysMedia(cached.mediaNode, cached.mediaType);
+      } catch {}
     }
+
+    // Registrar en almacén de eliminados
+    this.deletedStore.set(targetId, cached);
+
+    let chatList = this.deletedByChat.get(remoteJid);
+    if (!chatList) {
+      chatList = [];
+      this.deletedByChat.set(remoteJid, chatList);
+    }
+
+    // Insertar al inicio de la lista de eliminados recientes del chat
+    if (!chatList.includes(targetId)) {
+      chatList.unshift(targetId);
+      if (chatList.length > 50) chatList.pop();
+    }
+
+    console.log(`[AntiDelete] Guardado mensaje eliminado (${targetId}) de @${cached.sender?.split('@')[0]} en ${remoteJid}`);
   }
 
   /**
-   * Procesa la edición de un mensaje
+   * Obtiene un mensaje eliminado específico o el más reciente en el chat
    */
-  async handleEdit(sock, targetKey, editedMessage) {
-    if (!targetKey || !targetKey.id) return;
-    const targetId = targetKey.id;
-
-    const eventKey = `edit_${targetId}_${Date.now()}`;
-    if (this.processedEvents.has(eventKey)) return;
-    this.processedEvents.add(eventKey);
-
-    const cached = this.cache.get(targetId);
-    if (!cached) return;
-
-    if (cached.fromMe || targetKey.fromMe) return;
-
-    const remoteJid = cached.remoteJid || targetKey.remoteJid;
-    if (!remoteJid || remoteJid === 'status@broadcast') return;
-
-    const pushName = cached.pushName || 'Usuario';
-    const sender = cached.sender;
-    const mentions = sender ? [sender] : [];
-
-    const originalText = extractText(cached.message);
-    if (!originalText) return;
-
-    try {
-      // Formato requerido: <NombreDeUsuario>: <MensajeOriginal>
-      await sock.sendMessage(remoteJid, {
-        text: `${pushName}: ${originalText}`,
-        mentions
-      });
-
-      // Actualizar el caché con la nueva versión del mensaje para futuras ediciones
-      if (editedMessage) {
-        cached.message = editedMessage;
-      }
-    } catch (err) {
-      console.error('[AntiDelete Edit Error]', err);
+  getDeletedMessage(remoteJid, targetId) {
+    if (targetId) {
+      return this.deletedStore.get(targetId) || this.cache.get(targetId) || null;
     }
+
+    const chatList = this.deletedByChat.get(remoteJid);
+    if (chatList && chatList.length > 0) {
+      for (const id of chatList) {
+        const found = this.deletedStore.get(id) || this.cache.get(id);
+        if (found) return found;
+      }
+    }
+
+    return null;
   }
 }
 
 export const antiDeleteTracker = new AntiDeleteTracker();
 
 /**
- * Escuchador de protocolo en messages.upsert para detectar eliminaciones y ediciones
+ * Escuchador de protocolo en messages.upsert para registrar eliminaciones
  */
 export async function handleUpsertAntiDelete(sock, msg) {
   try {
@@ -299,12 +216,7 @@ export async function handleUpsertAntiDelete(sock, msg) {
       if (protocol.type === 0 && protocol.key) {
         await antiDeleteTracker.handleRevoke(sock, protocol.key);
       }
-      // Protocol MESSAGE_EDIT (tipo 14)
-      else if (protocol.type === 14 && protocol.key && protocol.editedMessage) {
-        await antiDeleteTracker.handleEdit(sock, protocol.key, protocol.editedMessage);
-      }
     } else {
-      // Guardar mensaje normal en memoria
       await antiDeleteTracker.store(msg);
     }
   } catch (err) {
@@ -313,7 +225,7 @@ export async function handleUpsertAntiDelete(sock, msg) {
 }
 
 /**
- * Escuchador de actualizaciones en messages.update
+ * Escuchador de actualizaciones en messages.update para registrar eliminaciones
  */
 export async function handleMessagesUpdate(sock, updates) {
   try {
@@ -323,17 +235,8 @@ export async function handleMessagesUpdate(sock, updates) {
       const { key, update } = item;
       if (!key) continue;
 
-      // Detección de eliminación por mensaje nulo o stub
       if (update && update.message === null) {
         await antiDeleteTracker.handleRevoke(sock, key);
-      }
-
-      // Detección de edición
-      const edited =
-        update?.message?.protocolMessage?.editedMessage ||
-        update?.editedMessage;
-      if (edited) {
-        await antiDeleteTracker.handleEdit(sock, key, edited);
       }
     }
   } catch (err) {

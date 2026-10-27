@@ -78,6 +78,7 @@ npm run dev
 | `!toimg` | `!toimage` | Convierte un sticker estático de vuelta a formato de imagen PNG. |
 | `!tovideo` | `!tomp4` | Convierte un sticker animado en un video MP4 reproducible. |
 | `!getpp [@usuario]` | `!perfil`, `!pfp` | Obtiene la foto de perfil en alta resolución del usuario citado, mencionado o propio. |
+| `!undel` | `!undelete`, `!recuperar` | Muestra un mensaje eliminado (citándolo o el último borrado) con mención al autor. |
 | `!r` | `!vv`, `!viewonce` | Revela y reenvía fotos, videos o audios de "Ver una sola vez" al citarlos. |
 | `!status` | `!estado` | Descarga y reenvía el contenido de un estado/historia citado (texto o multimedia). |
 | `!playaudio <canción>` | `!playmp3`, `!ytaudio` | Busca una canción y envía su carátula y descripción corta, seguida del audio MP3. |
