@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { randomBytes } from 'crypto';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
@@ -23,6 +24,19 @@ export async function downloadMediaBuffer(url, timeout = 5000) {
     }
   });
   return Buffer.from(res.data);
+}
+
+/**
+ * Descarga el contenido multimedia de un nodo de Baileys a Buffer de forma segura
+ */
+export async function downloadBaileysMedia(mediaNode, type) {
+  if (!mediaNode || !type) return null;
+  const stream = await downloadContentFromMessage(mediaNode, type);
+  let buffer = Buffer.from([]);
+  for await (const chunk of stream) {
+    buffer = Buffer.concat([buffer, chunk]);
+  }
+  return buffer;
 }
 
 /**

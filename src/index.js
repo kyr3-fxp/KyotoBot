@@ -6,23 +6,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { MessageHandler } from './handler.js';
 import { db } from './database.js';
+import {
+  antiDeleteTracker,
+  handleMessagesUpdate,
+  handleUpsertAntiDelete
+} from './utils/antiDelete.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const AUTH_FOLDER = path.join(__dirname, '..', 'auth_info');
-
-// Almacén en memoria para mensajes recientes (necesario para responder a reintentos 'getMessage')
-const messageStore = new Map();
-const MAX_STORED_MESSAGES = 1000;
-
-function storeMessage(key, message) {
-  if (!key || !key.id || !message) return;
-  if (messageStore.size >= MAX_STORED_MESSAGES) {
-    const firstKey = messageStore.keys().next().value;
-    messageStore.delete(firstKey);
-  }
-  messageStore.set(key.id, message);
-}
 
 // Filtrar mensajes de error internos de libsignal (Bad MAC, MessageCounterError al recibir historial antiguo)
 const originalConsoleError = console.error;
@@ -84,7 +76,7 @@ async function startBot() {
     shouldSyncHistoryMessage: () => false, // No intentar descifrar mensajes previos a la conexión del bot
     getMessage: async (key) => {
       // Proveer mensajes recientes en caso de que WhatsApp solicite reintento
-      return messageStore.get(key.id) || undefined;
+      return antiDeleteTracker.getMessage(key);
     }
   });
 
@@ -142,13 +134,18 @@ async function startBot() {
     }
   });
 
+  // Escuchar actualizaciones de mensajes (detección de mensajes eliminados / editados)
+  sock.ev.on('messages.update', async (updates) => {
+    await handleMessagesUpdate(sock, updates);
+  });
+
   // Escuchar mensajes entrantes, guardarlos para reintentos y procesarlos con el manejador
   sock.ev.on('messages.upsert', async (m) => {
     console.log(`[UPSERT] Tipo: ${m.type} | Mensajes recibidos: ${m.messages?.length || 0}`);
     if (m.messages) {
       for (const msg of m.messages) {
         if (msg.key && msg.message) {
-          storeMessage(msg.key, msg.message);
+          await handleUpsertAntiDelete(sock, msg);
         }
       }
     }
