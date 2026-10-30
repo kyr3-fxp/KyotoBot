@@ -42,28 +42,22 @@ export default {
         const buffer = await downloadBaileysMedia(imageNode, 'image');
         if (!buffer || buffer.length === 0) throw new Error('Buffer de imagen vacío');
 
-        const caption = imageNode.caption ? `🔓 ${imageNode.caption}` : '🔓 *Contenido revelado (Ver una sola vez)*';
-        await sock.sendMessage(
-          remoteJid,
-          {
-            image: buffer,
-            caption
-          },
-          { quoted: msg }
-        );
+        const messageOptions = { image: buffer };
+        if (imageNode.caption) {
+          messageOptions.caption = imageNode.caption;
+        }
+
+        await sock.sendMessage(remoteJid, messageOptions, { quoted: msg });
       } else if (videoNode) {
         const buffer = await downloadBaileysMedia(videoNode, 'video');
         if (!buffer || buffer.length === 0) throw new Error('Buffer de video vacío');
 
-        const caption = videoNode.caption ? `🔓 ${videoNode.caption}` : '🔓 *Contenido revelado (Ver una sola vez)*';
-        await sock.sendMessage(
-          remoteJid,
-          {
-            video: buffer,
-            caption
-          },
-          { quoted: msg }
-        );
+        const messageOptions = { video: buffer };
+        if (videoNode.caption) {
+          messageOptions.caption = videoNode.caption;
+        }
+
+        await sock.sendMessage(remoteJid, messageOptions, { quoted: msg });
       } else if (audioNode) {
         const buffer = await downloadBaileysMedia(audioNode, 'audio');
         if (!buffer || buffer.length === 0) throw new Error('Buffer de audio vacío');
