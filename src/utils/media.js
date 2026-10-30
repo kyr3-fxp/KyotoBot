@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
 import axios from 'axios';
@@ -8,7 +7,34 @@ import os from 'os';
 import { randomBytes } from 'crypto';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Configurar binario de ffmpeg: si existe en el sistema (ej. Termux o Linux), usarlo; de lo contrario el de npm
+if (fs.existsSync('/data/data/com.termux/files/usr/bin/ffmpeg')) {
+  ffmpeg.setFfmpegPath('/data/data/com.termux/files/usr/bin/ffmpeg');
+} else if (ffmpegInstaller?.path && fs.existsSync(ffmpegInstaller.path)) {
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+} else {
+  ffmpeg.setFfmpegPath('ffmpeg');
+}
+
+// Carga perezosa (lazy-load) de sharp para evitar romper el inicio del bot en arquitecturas como Android/Termux
+let sharpModule = null;
+async function getSharp() {
+  if (!sharpModule) {
+    try {
+      const mod = await import('sharp');
+      sharpModule = mod.default || mod;
+    } catch (e) {
+      // Intentar cargar sharp con fallback WASM si está disponible
+      try {
+        const mod = await import('@img/sharp-wasm32');
+        sharpModule = mod.default || mod;
+      } catch {
+        sharpModule = false;
+      }
+    }
+  }
+  return sharpModule;
+}
 
 /**
  * Descarga contenido multimedia (imagen, gif, video) y devuelve un Buffer seguro
@@ -78,22 +104,84 @@ export async function gifToMp4(gifBuffer) {
  * Convierte un buffer de imagen a sticker WebP optimizado (512x512)
  */
 export async function imageToWebp(imageBuffer) {
-  return await sharp(imageBuffer)
-    .resize(512, 512, {
-      fit: 'contain',
-      background: { r: 0, g: 0, b: 0, alpha: 0 }
-    })
-    .webp({ quality: 80 })
-    .toBuffer();
+  const sharpInstance = await getSharp();
+  if (sharpInstance) {
+    return await sharpInstance(imageBuffer)
+      .resize(512, 512, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+  }
+
+  // Fallback con FFmpeg si sharp no está disponible en la plataforma (ej. Termux)
+  const tmpId = randomBytes(6).toString('hex');
+  const inputPath = path.join(os.tmpdir(), `kyoto_img_${tmpId}.png`);
+  const outputPath = path.join(os.tmpdir(), `kyoto_img_${tmpId}.webp`);
+
+  fs.writeFileSync(inputPath, imageBuffer);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions([
+        '-vcodec libwebp',
+        '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=white@0.0'
+      ])
+      .toFormat('webp')
+      .save(outputPath)
+      .on('end', () => {
+        try {
+          const result = fs.readFileSync(outputPath);
+          try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch {}
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      })
+      .on('error', (err) => {
+        try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch {}
+        reject(err);
+      });
+  });
 }
 
 /**
  * Convierte un buffer WebP a imagen PNG
  */
 export async function webpToPng(webpBuffer) {
-  return await sharp(webpBuffer)
-    .png()
-    .toBuffer();
+  const sharpInstance = await getSharp();
+  if (sharpInstance) {
+    return await sharpInstance(webpBuffer)
+      .png()
+      .toBuffer();
+  }
+
+  // Fallback con FFmpeg si sharp no está disponible
+  const tmpId = randomBytes(6).toString('hex');
+  const inputPath = path.join(os.tmpdir(), `kyoto_w_${tmpId}.webp`);
+  const outputPath = path.join(os.tmpdir(), `kyoto_w_${tmpId}.png`);
+
+  fs.writeFileSync(inputPath, webpBuffer);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .toFormat('png')
+      .save(outputPath)
+      .on('end', () => {
+        try {
+          const result = fs.readFileSync(outputPath);
+          try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch {}
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      })
+      .on('error', (err) => {
+        try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch {}
+        reject(err);
+      });
+  });
 }
 
 /**
