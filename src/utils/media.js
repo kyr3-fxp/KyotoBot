@@ -1,4 +1,3 @@
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
 import axios from 'axios';
 import fs from 'fs';
@@ -7,13 +6,26 @@ import os from 'os';
 import { randomBytes } from 'crypto';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
-// Configurar binario de ffmpeg: si existe en el sistema (ej. Termux o Linux), usarlo; de lo contrario el de npm
+// Configurar binario de ffmpeg de manera segura para cualquier SO (Windows, Linux, Android/Termux)
 if (fs.existsSync('/data/data/com.termux/files/usr/bin/ffmpeg')) {
   ffmpeg.setFfmpegPath('/data/data/com.termux/files/usr/bin/ffmpeg');
-} else if (ffmpegInstaller?.path && fs.existsSync(ffmpegInstaller.path)) {
-  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 } else {
-  ffmpeg.setFfmpegPath('ffmpeg');
+  try {
+    // Intentar cargar el binario empaquetado solo si no estamos en Android
+    if (os.platform() !== 'android') {
+      const installer = await import('@ffmpeg-installer/ffmpeg');
+      const installerPath = installer?.default?.path || installer?.path;
+      if (installerPath && fs.existsSync(installerPath)) {
+        ffmpeg.setFfmpegPath(installerPath);
+      } else {
+        ffmpeg.setFfmpegPath('ffmpeg');
+      }
+    } else {
+      ffmpeg.setFfmpegPath('ffmpeg');
+    }
+  } catch {
+    ffmpeg.setFfmpegPath('ffmpeg');
+  }
 }
 
 // Carga perezosa (lazy-load) de sharp para evitar romper el inicio del bot en arquitecturas como Android/Termux
