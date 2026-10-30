@@ -52,7 +52,7 @@ class AntiDeleteTracker {
     this.cache = new Map(); // id -> entry
     this.deletedStore = new Map(); // id -> entry
     this.deletedByChat = new Map(); // remoteJid -> [id1, id2, ...]
-    this.maxSize = 2000;
+    this.maxSize = 400; // Reducido para evitar saturación de RAM con buffers multimedia
   }
 
   /**
@@ -165,6 +165,10 @@ class AntiDeleteTracker {
 
     // Registrar en almacén de eliminados
     this.deletedStore.set(targetId, cached);
+    if (this.deletedStore.size > 200) {
+      const oldestDeletedKey = this.deletedStore.keys().next().value;
+      this.deletedStore.delete(oldestDeletedKey);
+    }
 
     let chatList = this.deletedByChat.get(remoteJid);
     if (!chatList) {

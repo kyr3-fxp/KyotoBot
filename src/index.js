@@ -59,10 +59,10 @@ async function startBot() {
   const logger = pino({ level: 'silent' });
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
 
-  // Cache para reintentos de mensajes de Signal (previene MessageCounterError y Bad MAC)
-  const msgRetryCounterCache = new NodeCache();
+  // Cache para reintentos de mensajes de Signal (con TTL de 5 minutos para liberar memoria)
+  const msgRetryCounterCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
-  // Instanciar socket de WhatsApp optimizado para estabilidad en Windows
+  // Instanciar socket de WhatsApp optimizado para estabilidad continua
   const sock = makeWASocket({
     auth: {
       creds: state.creds,
@@ -74,6 +74,9 @@ async function startBot() {
     browser: ['KyotoBot', 'Chrome', '1.0.0'],
     syncFullHistory: false, // Evitar la descarga masiva de historial antiguo que satura el descifrado
     shouldSyncHistoryMessage: () => false, // No intentar descifrar mensajes previos a la conexión del bot
+    connectTimeoutMs: 60000,
+    keepAliveIntervalMs: 25000,
+    defaultQueryTimeoutMs: 60000,
     getMessage: async (key) => {
       // Proveer mensajes recientes en caso de que WhatsApp solicite reintento
       return antiDeleteTracker.getMessage(key);
