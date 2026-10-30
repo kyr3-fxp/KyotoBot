@@ -2,6 +2,7 @@ import { makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSig
 import NodeCache from 'node-cache';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import readline from 'readline';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MessageHandler } from './handler.js';
@@ -15,6 +16,13 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const AUTH_FOLDER = path.join(__dirname, '..', 'auth_info');
+
+// Interfaz interactiva de consola para solicitar número si se usa vinculación por código
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const question = (text) => new Promise((resolve) => rl.question(text, resolve));
+
+// Si se pasa --code o USE_PAIRING_CODE=true en variables de entorno / flags
+const usePairingCode = process.argv.includes('--code') || process.env.USE_PAIRING_CODE === 'true';
 
 // Filtrar mensajes de error internos de libsignal (Bad MAC, MessageCounterError al recibir historial antiguo)
 const originalConsoleError = console.error;
@@ -71,7 +79,7 @@ async function startBot() {
     msgRetryCounterCache,
     logger,
     printQRInTerminal: false,
-    browser: ['KyotoBot', 'Chrome', '1.0.0'],
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
     syncFullHistory: false, // Evitar la descarga masiva de historial antiguo que satura el descifrado
     shouldSyncHistoryMessage: () => false, // No intentar descifrar mensajes previos a la conexión del bot
     connectTimeoutMs: 60000,
@@ -86,12 +94,37 @@ async function startBot() {
   // Guardar credenciales de sesión automáticamente
   sock.ev.on('creds.update', saveCreds);
 
+  // Solicitar código de vinculación de 8 dígitos si se ejecuta con --code y no hay sesión previa
+  if (usePairingCode && !sock.authState.creds.registered) {
+    setTimeout(async () => {
+      try {
+        let phoneNumber = process.env.BOT_PHONE || '';
+        if (!phoneNumber) {
+          phoneNumber = await question('📱 Ingresa tu número de WhatsApp con código de país (ej. 573001234567): ');
+        }
+        phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+        if (phoneNumber) {
+          const code = await sock.requestPairingCode(phoneNumber);
+          const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+          console.log('\n=============================================');
+          console.log(`🔑 CÓDIGO DE VINCULACIÓN: \x1b[32m\x1b[1m${formattedCode}\x1b[0m`);
+          console.log('=============================================');
+          console.log('Ingresa a: WhatsApp -> Dispositivos vinculados -> Vincular con el número de teléfono\n');
+        } else {
+          console.error('❌ Número inválido.');
+        }
+      } catch (err) {
+        console.error('❌ Error al generar el código de vinculación:', err);
+      }
+    }, 3000);
+  }
+
   // Manejar el ciclo de vida de la conexión
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    // Desplegar código QR en la consola si es necesario
-    if (qr) {
+    // Desplegar código QR en la consola si es necesario (solo si no se usa código de vinculación)
+    if (qr && !usePairingCode) {
       console.log('\n📱 [CÓDIGO QR GENERADO]');
       console.log('Escanea el siguiente código con WhatsApp: (Dispositivos vinculados -> Vincular un dispositivo)\n');
       qrcode.generate(qr, { small: true });
