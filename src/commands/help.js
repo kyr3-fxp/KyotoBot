@@ -47,7 +47,8 @@ export default {
     for (const cmd of uniqueCommands) {
       const cat = cmd.category || 'general';
       const targetCat = categories[cat] || categories.general;
-      targetCat.list.push(`• \`${prefix}${cmd.name}\`: ${cmd.description}`);
+      const description = cmd.name === 'cl' ? '' : `: ${cmd.description}`;
+      targetCat.list.push(`• \`${prefix}${cmd.name}\`${description}`);
     }
 
     const sections = [];
