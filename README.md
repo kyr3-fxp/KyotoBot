@@ -99,7 +99,6 @@ npm run dev
 | Comando | Alias | Descripción |
 | :--- | :--- | :--- |
 | `!kick @usuario` | `!ban` | Expulsa a un usuario del grupo. |
-| `!cl all` | — | Intenta expulsar directamente a todos los integrantes, incluidos administradores; el bot permanece en el grupo. |
 | `!add <número>` | `!agregar` | Agrega un miembro al grupo mediante su número internacional. |
 | `!promote @usuario` | `!promover` | Otorga permisos de administrador a un miembro. |
 | `!demote @usuario` | `!degradar` | Revoca los permisos de administrador a un miembro. |
