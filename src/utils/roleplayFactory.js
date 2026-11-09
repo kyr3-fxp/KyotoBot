@@ -6,7 +6,7 @@ const FALLBACK_IMAGE_URL = 'https://images.unsplash.com/photo-1578632767115-3515
 
 /**
  * Creador robusto de comandos de rol e interacción
- * Maneja timeouts de 5s, conversión de GIF a MP4 compatible y fallback garantizado.
+ * Maneja timeouts de APIs, conversión de GIF a MP4 compatible y fallback garantizado.
  */
 export function createRoleplayCommand({
   name,
@@ -50,13 +50,19 @@ export function createRoleplayCommand({
       const caption = `${emoji} @${cleanSender} ${actionText} a @${cleanTarget} ${emoji}`;
 
       try {
-        // Envoltura con timeout estricto de 5 segundos
+        // La búsqueda puede consultar varios proveedores; permite completar los respaldos.
         const gifPromise = getRoleplayGif(actionKey || name);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), 5000)
-        );
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), 9000);
+        });
 
-        const mediaUrl = await Promise.race([gifPromise, timeoutPromise]);
+        let mediaUrl;
+        try {
+          mediaUrl = await Promise.race([gifPromise, timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (mediaUrl) {
           try {
