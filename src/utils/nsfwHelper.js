@@ -21,23 +21,25 @@ const PURRBOT_SFW = new Set([
   'bite', 'cuddle', 'dance', 'hug', 'kiss', 'lick', 'pat', 'poke', 'slap', 'smile', 'tickle'
 ]);
 
-// Mapeo a categorías NSFW válidas de PurrBot. Algunas acciones no tienen GIF dedicado.
+// Categorías NSFW de PurrBot que coinciden con una acción del bot.
 const PURRBOT_NSFW_MAP = {
   fuck: 'fuck',
-  penetrate: 'fuck',
-  bed: 'fuck',
   suck: 'blowjob',
-  oral: 'blowjob',
   cum: 'cum',
-  spank: null,
-  slapnsfw: null,
-  anal: 'anal',
-  grind: 'anal',
-  touch: 'fuck',
-  grope: 'fuck',
-  strip: 'fuck',
-  bondage: 'fuck',
   lick: 'pussylick'
+};
+
+// Yande.re no tiene GIFs para varias acciones, así que se usan búsquedas por etiquetas
+// relacionadas; si el proveedor no devuelve esa etiqueta, el resultado se descarta.
+const YANDE_ROLEPLAY_TAGS = {
+  bed: 'sex',
+  bondage: 'bondage',
+  grind: 'tribadism',
+  grope: 'ass_grab',
+  slapnsfw: 'ass_grab',
+  spank: 'ass_grab',
+  strip: 'undressing',
+  touch: 'breast_grab'
 };
 
 // Acciones SFW soportadas por nekos.best
@@ -93,7 +95,7 @@ export async function getRoleplayGif(action = 'hug') {
     return null;
   }
 
-  // --- 2. Si es una acción NSFW o de rol adulto (fuck, suck, cum, spank, etc.) ---
+  // --- 2. Acciones NSFW con categoría propia en PurrBot ---
   const purrAction = PURRBOT_NSFW_MAP[cleanAction];
 
   // Intento A: PurrBot API v2 solo recibe categorías existentes.
@@ -106,26 +108,13 @@ export async function getRoleplayGif(action = 'hug') {
     }
   }
 
-  // Intento B: contenido explícito etiquetado para azotes, cuando esa acción no tiene endpoint GIF.
-  if (cleanAction === 'spank' || cleanAction === 'slapnsfw') {
-    try {
-      const spankingUrl = await getRandomYandePost('rating:explicit+spanking');
-      if (spankingUrl) return spankingUrl;
-    } catch (err) {
-      console.warn(`[Roleplay] Búsqueda explícita de azotes falló:`, err.message);
-    }
+  // Acciones sin GIF dedicado: buscar por etiquetas específicas en vez de usar "fuck".
+  const roleplayTag = YANDE_ROLEPLAY_TAGS[cleanAction];
+  if (roleplayTag) {
+    return await getRandomYandePost(`rating:explicit+${roleplayTag}`);
   }
 
-  // Intento C: GIF NSFW genérico válido como último recurso si no hay categoría específica.
-  try {
-    const res = await client.get(`${PURRBOT_API}/img/nsfw/fuck/gif`);
-    if (res.data?.link && !res.data?.error) return res.data.link;
-  } catch (err) {
-    console.warn(`[Roleplay] PurrBot v2 NSFW de respaldo falló para "${cleanAction}":`, err.message);
-  }
-
-  // Intento D: Yande.re post optimizado (sample_url)
-  return await getRandomYandePost('rating:explicit');
+  return null;
 }
 
 /**
@@ -133,11 +122,26 @@ export async function getRoleplayGif(action = 'hug') {
  */
 export async function getRandomYandePost(tag = 'rating:explicit') {
   try {
-    const randomPage = Math.floor(Math.random() * 15) + 1;
-    const url = `https://yande.re/post.json?limit=15&page=${randomPage}&tags=order:random+${encodeURIComponent(tag)}`;
+    const requestedTags = tag.split(/[+\s]+/).filter(Boolean);
+    const encodedTags = requestedTags
+      .map(part => encodeURIComponent(part))
+      .join('%20');
+    const url = `https://yande.re/post.json?limit=40&page=1&tags=${encodedTags}`;
     const res = await client.get(url);
-    if (Array.isArray(res.data) && res.data.length > 0) {
-      const item = res.data[Math.floor(Math.random() * res.data.length)];
+    const posts = Array.isArray(res.data) ? res.data : (res.data?.posts || []);
+    const requiredTags = requestedTags.filter(t => !t.startsWith('rating:'));
+    const matchingPosts = posts.filter(post => {
+      const postTags = new Set((post.tags || '').split(/\s+/));
+      const requestedRating = requestedTags.find(t => t.startsWith('rating:'));
+      const ratingMatches = !requestedRating ||
+        (requestedRating === 'rating:explicit' && post.rating === 'e') ||
+        (requestedRating === 'rating:questionable' && post.rating === 'q') ||
+        (requestedRating === 'rating:safe' && post.rating === 's');
+      return ratingMatches && requiredTags.every(t => postTags.has(t));
+    });
+
+    if (matchingPosts.length > 0) {
+      const item = matchingPosts[Math.floor(Math.random() * matchingPosts.length)];
       // Preferir sample_url o jpeg_url para evitar descargas pesadas de más de 5MB
       return item.sample_url || item.jpeg_url || item.file_url;
     }
