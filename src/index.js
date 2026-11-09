@@ -143,9 +143,13 @@ async function startBot() {
     // Manejar desconexiones y reconexiones automáticas
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const disconnectMessage = lastDisconnect?.error?.message || 'Desconocida';
+      // Baileys sometimes reports a transient "Stream Errored (conflict)" as 401.
+      // Only treat 401 as a revoked session when it is not this known conflict case.
+      const isConflict = /\bconflict\b/i.test(disconnectMessage);
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut && !isConflict;
 
-      console.warn(`[Conexión cerrada] Razón: ${lastDisconnect?.error?.message || 'Desconocida'} (Código: ${statusCode})`);
+      console.warn(`[Conexión cerrada] Razón: ${disconnectMessage} (Código: ${statusCode})`);
 
       try {
         sock.ws?.close();
@@ -165,7 +169,7 @@ async function startBot() {
           }, 3000);
         }
       } else {
-        console.error('🚫 Sesión cerrada desde el dispositivo móvil. Elimina la carpeta "auth_info" y vuelve a iniciar para escanear un nuevo código QR.');
+        console.error('🚫 WhatsApp rechazó la sesión (401). No se borró "auth_info". Revisa Dispositivos vinculados en el teléfono; si el dispositivo fue desvinculado, respalda "auth_info" antes de volver a vincularlo.');
       }
     }
   });
