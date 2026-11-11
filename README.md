@@ -53,6 +53,22 @@ npm run dev
 
 ---
 
+## ☁️ Desplegar en Render con Docker
+
+El repositorio incluye `Dockerfile` y `render.yaml` para desplegar Kyoto como un **Background Worker**. Este bot no necesita un servidor web ni un puerto abierto.
+
+1. Sube el repositorio a GitHub sin incluir `auth_info/` ni archivos `.env`.
+2. En Render, crea un **Blueprint** conectado a ese repositorio y aplica la configuración de `render.yaml`.
+3. Cuando Render solicite `BOT_PHONE`, introduce el número de WhatsApp del bot con código de país, solo dígitos (por ejemplo, `573001234567`).
+4. Espera a que termine el primer despliegue y abre los registros del servicio. Copia el código de vinculación que imprime el bot y confírmalo en WhatsApp: **Dispositivos vinculados → Vincular un dispositivo → Vincular con el número de teléfono**.
+5. Comprueba en los registros que aparezca el mensaje de conexión establecida.
+
+El disco persistente de Render guarda `auth_info/` y `data/` bajo `/var/data`, para conservar la sesión de WhatsApp y los datos del bot entre reinicios y despliegues. El servicio configurado usa el plan Starter porque Render requiere un plan de pago para adjuntar un disco persistente. Mantén una sola instancia del worker para evitar que dos conexiones usen la misma sesión.
+
+No compartas el código de vinculación ni copies `auth_info/` al repositorio. Si el servicio pierde su disco, habrá que vincular WhatsApp de nuevo.
+
+---
+
 ## 📜 Lista Completa de Comandos (Prefijo `!`)
 
 ### 🎮 Entretenimiento e Interacción (Juegos y Economía)

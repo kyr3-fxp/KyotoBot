@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: kyoto-whatsapp-bot
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    disk:
+      name: kyoto-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: USE_PAIRING_CODE
+        value: "true"
+      - key: BOT_PHONE
+        sync: false

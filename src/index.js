@@ -15,7 +15,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const AUTH_FOLDER = path.join(__dirname, '..', 'auth_info');
+const AUTH_FOLDER = process.env.BOT_AUTH_DIR || path.join(__dirname, '..', 'auth_info');
 
 // Interfaz interactiva de consola para solicitar número si se usa vinculación por código
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
