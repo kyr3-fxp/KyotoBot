@@ -1,7 +1,7 @@
 import { checkGroupAdmin } from '../../utils/permissions.js';
 
 const MAX_REPETITIONS = 50;
-const DELAY_MS = 500;
+const DELAY_MS = 0;
 
 export default {
   name: 'spam',
