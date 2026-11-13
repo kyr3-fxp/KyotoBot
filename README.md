@@ -105,6 +105,7 @@ No compartas el código de vinculación ni copies `auth_info/` al repositorio. S
 | `!ig <link>` | `!instagram` | Descarga publicaciones o Reels públicos de Instagram. |
 | `!ia <pregunta>` | `!gpt` | Consulta directa al modelo de inteligencia artificial (Pollinations AI). |
 | `!imagine <prompt>` | `!dall-e` | Genera imágenes artísticas y realistas a partir de descripciones de texto. |
+| `!pnt <descripción>` | — | Busca en Pinterest (`PINTEREST_ACCESS_TOKEN`), luego en otras fuentes; si no hay resultados, intenta generarla con IA. |
 | `!shazam` | `!song` | Identifica canciones respondiendo a notas de voz, audios o videos. |
 | `!rembg` | `!quitarfondo` | Remueve automáticamente el fondo de una imagen y genera un sticker transparente. |
 

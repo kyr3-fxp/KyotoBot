@@ -119,11 +119,12 @@ export async function imageToWebp(imageBuffer) {
   const sharpInstance = await getSharp();
   if (sharpInstance) {
     return await sharpInstance(imageBuffer)
+      .ensureAlpha()
       .resize(512, 512, {
         fit: 'contain',
         background: { r: 0, g: 0, b: 0, alpha: 0 }
       })
-      .webp({ quality: 80 })
+      .webp({ quality: 80, alphaQuality: 100 })
       .toBuffer();
   }
 
@@ -138,7 +139,8 @@ export async function imageToWebp(imageBuffer) {
     ffmpeg(inputPath)
       .outputOptions([
         '-vcodec libwebp',
-        '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:-1:-1:color=white@0.0'
+        '-lossless 1',
+        '-vf format=rgba,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p'
       ])
       .toFormat('webp')
       .save(outputPath)
