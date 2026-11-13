@@ -123,6 +123,7 @@ No compartas el código de vinculación ni copies `auth_info/` al repositorio. S
 | `!revoke` | `!restablecer` | Restablece el enlace de invitación invalidando el anterior. |
 | `!tagall [mensaje]` | `!todos` | Mención visible e invocación a todos los integrantes del grupo. |
 | `!hidetag <mensaje>` | `!notificar` | Notifica a todos los integrantes sin mostrar las menciones en el texto. |
+| `!spam <1-50> <mensaje>` | `!repetirhidetag` | Repite un hidetag el número indicado de veces (solo administradores; pausa de 1,5 s entre mensajes). |
 | `!warn @usuario` | `!advertir` | Aplica una advertencia (al acumular 3 advertencias el bot lo expulsa). |
 | `!unwarn @usuario` | `!quitaraviso` | Remueve una advertencia registrada. |
 | `!mute @usuario` | `!unmute` | Silencia a un miembro (sus mensajes en el grupo son eliminados por el bot). |
