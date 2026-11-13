@@ -118,7 +118,7 @@ No compartas el código de vinculación ni copies `auth_info/` al repositorio. S
 | `!add <número>` | `!agregar` | Agrega un miembro al grupo mediante su número internacional. |
 | `!promote @usuario` | `!promover` | Otorga permisos de administrador a un miembro. |
 | `!demote @usuario` | `!degradar` | Revoca los permisos de administrador a un miembro. |
-| `!group <open\|close>` | `!grupo` | Abre o cierra el grupo (en cerrado solo admins pueden escribir). |
+| `!grupo <cerrar\|abrir>` | `!group` | `cerrar`: solo admins pueden escribir. `abrir`: todos pueden escribir. |
 | `!link` | `!enlace` | Muestra el enlace de invitación del grupo. |
 | `!revoke` | `!restablecer` | Restablece el enlace de invitación invalidando el anterior. |
 | `!tagall [mensaje]` | `!todos` | Mención visible e invocación a todos los integrantes del grupo. |

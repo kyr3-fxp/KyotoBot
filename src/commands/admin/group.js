@@ -4,7 +4,7 @@ export default {
   name: 'group',
   aliases: ['grupo'],
   description: 'Abre o cierra el grupo (en cerrado solo los administradores pueden enviar mensajes).',
-  usage: '!group <open|close>',
+  usage: '!grupo <cerrar|abrir>',
   category: 'admin',
   async execute({ sock, remoteJid, sender, args, msg, m, isFromMe }) {
     const perm = await checkGroupAdmin({ sock, remoteJid, sender, msg, m, isFromMe });
@@ -15,7 +15,7 @@ export default {
 
     if (args.length === 0) {
       await sock.sendMessage(remoteJid, {
-        text: '⚠️ Debes especificar si deseas abrir o cerrar el grupo.\n*Uso:* `!group open` o `!group close`'
+        text: '⚠️ Indica si deseas abrir o cerrar el grupo.\n*Uso:* `!grupo cerrar` (solo admins escriben) o `!grupo abrir` (todos escriben).'
       });
       return;
     }
@@ -35,7 +35,7 @@ export default {
         });
       } else {
         await sock.sendMessage(remoteJid, {
-          text: '⚠️ Opción no válida. Usa `!group open` o `!group close`.'
+          text: '⚠️ Opción no válida. Usa `!grupo cerrar` o `!grupo abrir`.'
         });
       }
     } catch (err) {
